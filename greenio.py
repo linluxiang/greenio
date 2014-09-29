@@ -1,5 +1,5 @@
 #!/usr/bin/pypy
-import asyncore
+import asyncore_epoll as asyncore
 from greenlet import greenlet
 import socket
 
@@ -30,6 +30,7 @@ class PacketIO(asyncore.dispatcher):
         self.scheduler= scheduler 
         self.error = 0
         self.should_read = False
+        self.should_write= False
         self.input = None
         self.output = None
         self.nextlen = 0
@@ -43,11 +44,16 @@ class PacketIO(asyncore.dispatcher):
 
     def readable(self):
         return self.should_read
+
+    def genPacketHeader(size):
+        return chr(size/(256**3)) + chr(size/(256**2)) + chr(size/(256)) + chr(size%256)
     
     def write(self,output):
         self.output = output
         self.error = 0
         self.should_write = True
+        plen = len(self.output)
+        self.temp = self.genPacketHeader()
         self.scheduler.switch()
 
     def writeable(self):
@@ -58,6 +64,26 @@ class PacketIO(asyncore.dispatcher):
         self.close()
         self.error = error
         self.handler.switch()
+
+    def handle_write(self):
+        if len(self.temp) > 0:
+            sent = self.send(self.temp)
+            if sent >=0:
+                self.temp=self.temp[sent:]
+            else:
+                doerror(2)
+            return
+        else:
+            if len(self.output) > 0:
+                sent = self.send(self.output)
+                if sent>=0:
+                    self.output = self.output[sent:]
+                else:
+                    doerror(2)
+            else:
+                self.output = None
+                self.error=0
+                self.handler.switch()
     
     def handle_read(self):
         if self.nextlen==0:
