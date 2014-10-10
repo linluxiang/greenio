@@ -1,27 +1,6 @@
-#!/usr/bin/pypy
 import asyncore_epoll as asyncore
-from greenlet import greenlet
 import socket
-
-class Scheduler(asyncore.dispatcher):
-    def __init__(self,host,port):
-        asyncore.dispatcher.__init__(self)
-        self.glet = greenlet(self.routine)
-        self.create_socket(socket.AF_INET,socket.SOCK_STREAM)
-        self.set_reuse_addr()
-        self.bind((host,port))
-        self.listen(5)
-
-    def handle_accept(self):
-        pair = self.accept()
-        if pair is not None:
-            socket,addr = pair
-            handler = Handler(socket,self)
-            handler.glet.switch()
-
-
-    def routine(self):
-        asyncore.loop()
+from greenlet import greenlet
 
 class PacketIO(asyncore.dispatcher):
     def __init__(self,socket,handler,scheduler):
@@ -56,7 +35,7 @@ class PacketIO(asyncore.dispatcher):
         self.temp = self.genPacketHeader()
         self.scheduler.switch()
 
-    def writeable(self):
+    def writable(self):
         return self.should_write
     
     def doerror(self,error):
@@ -110,10 +89,7 @@ class PacketIO(asyncore.dispatcher):
             self.should_read= False
             self.handler.switch()
 
-
-        
-
-class Handler:
+class PacketHandler:
     def __init__(self,socket,scheduler):
         self.scheduler = scheduler
         self.glet = greenlet(self.routine)
@@ -128,6 +104,4 @@ class Handler:
 
     def process(self):
         pass
-    
 
-Scheduler('localhost',7777).glet.switch()
