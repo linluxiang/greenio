@@ -79,7 +79,7 @@ class PacketIO(asyncore.dispatcher):
                 self.doerror(1)
         else:
             data = self.recv(self.nextlen-len(self.temp))
-            if len(data) <  slef.nextlen-len(self.temp):
+            if len(data) <  self.nextlen-len(self.temp):
                 self.temp += data
                 return
             self.temp+=data
@@ -88,6 +88,14 @@ class PacketIO(asyncore.dispatcher):
             self.temp = ''
             self.should_read= False
             self.handler.switch()
+
+    def handle_close(self):
+        self.should_read= False
+        self.error = -1
+        self.handler.switch()
+        #handle close to release session related resources
+        pass
+
 
 class PacketHandler:
     def __init__(self,socket,scheduler):
@@ -103,5 +111,5 @@ class PacketHandler:
         print 'greenlet finished'
 
     def process(self):
+        print self.packetio.input
         pass
-
